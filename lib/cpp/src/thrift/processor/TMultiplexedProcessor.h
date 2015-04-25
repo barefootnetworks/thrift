@@ -23,6 +23,7 @@
 #include <thrift/protocol/TProtocolDecorator.h>
 #include <thrift/TApplicationException.h>
 #include <thrift/TProcessor.h>
+#include <thrift/concurrency/Mutex.h>
 #include <boost/tokenizer.hpp>
 
 namespace apache
@@ -30,6 +31,7 @@ namespace apache
     namespace thrift
     {
         using boost::shared_ptr;
+        using concurrency::ReadWriteMutex;
 
         namespace protocol {
 
@@ -112,7 +114,9 @@ namespace apache
             void registerProcessor( const std::string & serviceName,
                                     shared_ptr<TProcessor> processor )
             {
+	        services_access.acquireWrite();
                 services[serviceName] = processor;
+		services_access.release();
             }
 
             /**
@@ -172,7 +176,9 @@ namespace apache
                 if( tokens.size() == 2 )
                 {
                     // Search for a processor associated with this service name.
+	            services_access.acquireRead();
                     services_t::iterator it = services.find(tokens[0]);
+		    services_access.release();
 
                     if( it != services.end() )
                     {
@@ -211,6 +217,7 @@ namespace apache
         private:
             /** Map of service processor objects, indexed by service names. */
             services_t services;
+	    ReadWriteMutex services_access;
         };
     }
 }
